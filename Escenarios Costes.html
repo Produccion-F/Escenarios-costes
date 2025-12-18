@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora de Costes FACCSA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Sticky Header */
+        thead th { position: sticky; background-color: #f3f4f6; z-index: 30; }
+        thead tr:first-child th { top: 0; }
+        thead tr:last-child th { top: 41px; z-index: 25; }
+        
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.98);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 50; transition: opacity 0.5s ease-out;
+        }
+        .hidden-overlay { opacity: 0; pointer-events: none; }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* Estilos Acordeón */
+        .dept-row { cursor: pointer; transition: background-color 0.2s; }
+        .dept-row:hover { background-color: #f1f5f9; }
+        .chevron { transition: transform 0.3s ease; }
+        .expanded .chevron { transform: rotate(180deg); }
+        .sub-row { background-color: #ffffff; }
+        .sub-row:hover { background-color: #f8fafc; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+
+    <!-- Loading Screen -->
+    <div id="loadingOverlay">
+        <div class="text-5xl text-slate-700 mb-6"><i class="fas fa-circle-notch spinner"></i></div>
+        <h2 class="text-2xl font-bold text-slate-800">Cargando Datos...</h2>
+        <p class="text-slate-500 mt-2">Procesando estructura de Base de Datos</p>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white shadow-sm z-30 relative">
+        <div class="max-w-screen-2xl mx-auto p-4 md:p-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">FACCSA | Simulador de Costes</h1>
+                <p class="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-1">
+                    <i class="fas fa-database"></i> Conectado a Google Sheets (DB Mode)
+                </p>
+            </div>
+            <button onclick="location.reload()" class="text-sm text-slate-500 hover:text-slate-800 underline">
+                <i class="fas fa-sync-alt"></i> Refrescar Datos
+            </button>
+        </div>
+    </div>
+
+    <div class="mx-auto p-4 md:p-8 max-w-screen-2xl w-full flex-grow">
+        <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+            
+            <!-- Panel de Control (Inputs) -->
+            <div class="p-6 border-b border-gray-200 bg-slate-50/50">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+                    
+                    <!-- E1 Base -->
+                    <div class="p-4 bg-white rounded-lg border border-slate-200 shadow-sm relative">
+                        <div class="absolute top-2 right-2 text-xs text-slate-400" title="Datos del Sheet"><i class="fas fa-database"></i></div>
+                        <h3 class="font-bold text-slate-700 mb-2">🏳️ Escenario 1 (Base)</h3>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <p class="text-xs text-slate-500">Cerdos</p>
+                                <p class="text-lg font-mono font-bold text-slate-800" id="baseCerdos">...</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-slate-500">Peso</p>
+                                <p class="text-lg font-mono font-bold text-slate-800"><span id="basePeso">...</span> <span class="text-xs font-normal">kg</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- E2 Config -->
+                    <div class="p-4 bg-sky-50 rounded-lg border border-sky-200 shadow-sm">
+                        <h3 class="font-bold text-sky-800 mb-2">🟦 Escenario 2</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-sky-700">Cerdos</label>
+                                <input type="text" id="cerdos2" value="105.000" class="w-full px-2 py-1 border border-sky-300 rounded text-sm text-right font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-sky-700">Peso</label>
+                                <input type="number" id="peso2" value="90.00" step="0.1" class="w-full px-2 py-1 border border-sky-300 rounded text-sm text-right font-mono focus:ring-2 focus:ring-sky-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- E3 Config -->
+                    <div class="p-4 bg-amber-50 rounded-lg border border-amber-200 shadow-sm">
+                        <h3 class="font-bold text-amber-800 mb-2">🟧 Escenario 3</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-semibold text-amber-700">Cerdos</label>
+                                <input type="text" id="cerdos3" value="95.000" class="w-full px-2 py-1 border border-amber-300 rounded text-sm text-right font-mono focus:ring-2 focus:ring-amber-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="text-xs font-semibold text-amber-700">Peso</label>
+                                <input type="number" id="peso3" value="88.50" step="0.1" class="w-full px-2 py-1 border border-amber-300 rounded text-sm text-right font-mono focus:ring-2 focus:ring-amber-500 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="calcBtn" class="h-[88px] bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg shadow-md transition-all active:scale-95 flex flex-col items-center justify-center gap-1">
+                        <i class="fas fa-calculator text-xl"></i>
+                        <span>RECALCULAR</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div id="kpiContainer" class="grid grid-cols-3 divide-x divide-gray-200 border-b border-gray-200 bg-white"></div>
+
+            <!-- Tabla -->
+            <div class="flex-grow overflow-auto bg-white" style="height: 60vh;">
+                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-3 text-left w-1/3 pl-8">Departamento / Centro de Gestión</th>
+                            <th class="px-2 py-3 text-center w-24">Tipo</th>
+                            <th class="px-4 py-3 text-right bg-slate-100 border-l">Base (€)</th>
+                            <th class="px-4 py-3 text-right bg-slate-100">€/kg</th>
+                            <th class="px-4 py-3 text-right bg-sky-50 border-l border-sky-100">E2 (€)</th>
+                            <th class="px-4 py-3 text-right bg-sky-50">€/kg</th>
+                            <th class="px-4 py-3 text-right bg-amber-50 border-l border-amber-100">E3 (€)</th>
+                            <th class="px-4 py-3 text-right bg-amber-50">€/kg</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mainTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // =========================================================================
+    //  CONFIGURACIÓN GOOGLE SHEETS
+    // =========================================================================
+    const URL_CONFIG = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG0Q27EpHXPy83FBcSs03iIaDPUbDFMZGcNhl15fc6uqDosyBCOk6w4UKuEIRSAYEmEHxXLp7SH2iW/pub?gid=126063802&single=true&output=csv";
+    const URL_COSTES = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG0Q27EpHXPy83FBcSs03iIaDPUbDFMZGcNhl15fc6uqDosyBCOk6w4UKuEIRSAYEmEHxXLp7SH2iW/pub?gid=2092625440&single=true&output=csv";
+
+    // Columnas según tu nueva estructura DB:
+    // A (0): Dep (Departamento)
+    // B (1): Centros de Gestion (Descripción de la partida)
+    // C (2): Importe (Coste)
+    // D (3): Tipo (1, 2, 3)
+    const COL_DEPARTAMENTO = 0;
+    const COL_CENTRO_GESTION = 1;
+    const COL_IMPORTE = 2;
+    const COL_TIPO = 3;
+
+    // Estado de la aplicación
+    let state = {
+        cerdosBase: 98870,
+        pesoBase: 88.5,
+        departamentos: [] // Aquí guardaremos la estructura jerárquica
+    };
+
+    // --- PARSERS DE TEXTO Y NÚMEROS ---
+    const cleanText = (val) => val ? val.replace(/^"|"$/g, '').trim() : '';
+    
+    const parseNum = (str) => {
+        if (typeof str === 'number') return str;
+        if (!str) return 0;
+        let cleanStr = str.toString().replace(/^"|"$/g, ''); // Quitar comillas del CSV
+        // Formato Europeo: 1.234,56
+        cleanStr = cleanStr.replace(/\./g, ''); // Quitar puntos de miles
+        cleanStr = cleanStr.replace(',', '.');  // Coma a punto decimal
+        cleanStr = cleanStr.replace(/[^\d.-]/g, ''); // Limpiar basura
+        const result = parseFloat(cleanStr);
+        return isNaN(result) ? 0 : result;
+    };
+
+    const fmtMoney = (n) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(n);
+    const fmtKg = (n) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(n);
+    const fmtInt = (n) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(n);
+
+    // --- LÓGICA PRINCIPAL: PROCESAR CSV ---
+    const processCSV = (text) => {
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length === 0) return [];
+
+        // Detectar delimitador (coma o punto y coma)
+        let delimiter = ',';
+        if (lines[0].indexOf(';') > -1) delimiter = ';'; // Priorizar ; si existe
+
+        let departamentosMap = new Map(); // Mapa para agrupar por nombre de depto
+        let currentDeptName = "SIN ASIGNAR";
+
+        // Empezamos en i=1 para saltar cabecera
+        for (let i = 1; i < lines.length; i++) {
+            let rowText = lines[i];
+            
+            // Split robusto para CSV
+            let cols;
+            if (delimiter === ';') {
+                cols = rowText.split(';');
+            } else {
+                // Regex para respetar comillas
+                cols = rowText.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+                if (cols.length < 2) cols = rowText.split(',');
+            }
+            cols = cols.map(c => cleanText(c));
+
+            // Leer datos crudos
+            const rawDep = cols[COL_DEPARTAMENTO] || '';
+            const rawCentro = cols[COL_CENTRO_GESTION] || '';
+            const rawImporte = cols[COL_IMPORTE] || '0';
+            const rawTipo = cols[COL_TIPO] || '1';
+
+            // --- LÓGICA DE BASE DE DATOS ---
+            
+            // 1. Detectar cambio de Departamento (Columna A no vacía)
+            if (rawDep !== '') {
+                // Limpiar nombre (ej: "01 ADMINISTRACION" -> "ADMINISTRACION")
+                // Si prefieres mantener el código, quita el .replace
+                // currentDeptName = rawDep.replace(/^\d+\s+/, '').trim();
+                currentDeptName = rawDep.trim(); // Mantenemos el código si viene
+            }
+
+            // 2. Detectar si es una línea de Centro de Gestión (Columna B no vacía)
+            if (rawCentro !== '' && !rawCentro.toLowerCase().includes('total')) {
+                
+                // Inicializar departamento si no existe en el mapa
+                if (!departamentosMap.has(currentDeptName)) {
+                    departamentosMap.set(currentDeptName, {
+                        name: currentDeptName,
+                        items: [],
+                        totalBase: 0 // Se calculará sumando hijos
+                    });
+                }
+
+                // Crear objeto partida
+                const item = {
+                    desc: rawCentro,
+                    importe: parseNum(rawImporte),
+                    tipo: parseInt(rawTipo) || 1
+                };
+
+                // Añadir al departamento
+                const deptObj = departamentosMap.get(currentDeptName);
+                deptObj.items.push(item);
+                deptObj.totalBase += item.importe;
+            }
+        }
+
+        // Convertir mapa a array ordenado (por orden de aparición en CSV)
+        return Array.from(departamentosMap.values());
+    };
+
+    // --- CARGA DE DATOS ---
+    async function fetchData() {
+        const overlay = document.getElementById('loadingOverlay');
+        try {
+            overlay.classList.remove('hidden-overlay');
+            
+            // Cargar Config y Costes en paralelo
+            const [resConfig, resCostes] = await Promise.all([
+                fetch(URL_CONFIG),
+                fetch(URL_COSTES)
+            ]);
+
+            const txtConfig = await resConfig.text();
+            const txtCostes = await resCostes.text();
+
+            // Procesar Config (Cerdos/Peso)
+            const linesConfig = txtConfig.split(/\r?\n/);
+            linesConfig.forEach(line => {
+                if(!line) return;
+                const cols = line.split(/[;,]/); // Separador simple para config
+                if(cols.length < 2) return;
+                const key = cleanText(cols[0]).toLowerCase();
+                const val = parseNum(cleanText(cols[1]));
+                if(key.includes('cerdos')) state.cerdosBase = val;
+                if(key.includes('peso')) state.pesoBase = val;
+            });
+
+            // Procesar Estructura de Costes
+            state.departamentos = processCSV(txtCostes);
+
+            // Actualizar UI Base
+            document.getElementById('baseCerdos').textContent = fmtInt(state.cerdosBase);
+            document.getElementById('basePeso').textContent = state.pesoBase.toLocaleString('es-ES');
+
+            render();
+            overlay.classList.add('hidden-overlay');
+
+        } catch (e) {
+            console.error(e);
+            alert("Error cargando datos. Verifica la consola.");
+        }
+    }
+
+    // --- CÁLCULOS Y RENDERIZADO ---
+    function render() {
+        // Datos Base
+        const kgBase = state.cerdosBase * state.pesoBase;
+
+        // Datos Escenario 2
+        const cerdos2 = parseNum(document.getElementById('cerdos2').value);
+        const peso2 = parseFloat(document.getElementById('peso2').value);
+        const kg2 = cerdos2 * peso2;
+        const factor2 = kgBase > 0 ? kg2 / kgBase : 0;
+
+        // Datos Escenario 3
+        const cerdos3 = parseNum(document.getElementById('cerdos3').value);
+        const peso3 = parseFloat(document.getElementById('peso3').value);
+        const kg3 = cerdos3 * peso3;
+        const factor3 = kgBase > 0 ? kg3 / kgBase : 0;
+
+        const tbody = document.getElementById('mainTableBody');
+        tbody.innerHTML = '';
+
+        let grandTotal = { b: 0, e2: 0, e3: 0 };
+
+        // Iterar por Departamentos
+        state.departamentos.forEach((dept, index) => {
+            let deptTotal = { b: 0, e2: 0, e3: 0 };
+            let itemsHtml = '';
+
+            // Calcular cada partida del departamento
+            dept.items.forEach(item => {
+                const c1 = item.importe;
+                let c2 = 0, c3 = 0;
+
+                // Lógica de Tipos
+                if (item.tipo === 1) { // Fijo
+                    c2 = c1; c3 = c1;
+                } else if (item.tipo === 2) { // Variable
+                    c2 = c1 * factor2; c3 = c1 * factor3;
+                } else if (item.tipo === 3) { // Semifijo
+                    const f = c1 * 0.81; 
+                    const v = c1 * 0.19;
+                    c2 = f + (v * factor2); 
+                    c3 = f + (v * factor3);
+                }
+
+                // Sumar al total del departamento
+                deptTotal.b += c1; deptTotal.e2 += c2; deptTotal.e3 += c3;
+
+                // Estilos Tipo
+                const badgeClass = item.tipo === 1 ? 'text-blue-600 bg-blue-50' : 
+                                   item.tipo === 3 ? 'text-purple-600 bg-purple-50' : 'text-emerald-600 bg-emerald-50';
+                const tipoLabel = item.tipo === 1 ? 'Fijo' : item.tipo === 3 ? 'Semi' : 'Var';
+
+                // HTML de la fila hija (oculta por defecto)
+                itemsHtml += `
+                    <tr class="sub-row dept-${index} hidden border-t border-gray-100 transition-colors">
+                        <td class="px-4 py-2 pl-12 text-sm text-gray-600 relative">
+                            <span class="absolute left-8 top-1/2 -translate-y-1/2 w-2 h-[1px] bg-gray-300"></span>
+                            ${item.desc}
+                        </td>
+                        <td class="px-2 py-2 text-center"><span class="text-[10px] px-1.5 py-0.5 rounded border border-opacity-20 ${badgeClass}">${tipoLabel}</span></td>
+                        <td class="px-4 py-2 text-right text-sm text-gray-500 border-l border-slate-100">${fmtMoney(c1)}</td>
+                        <td class="px-4 py-2 text-right text-[10px] text-gray-400">${fmtKg(kgBase ? c1/kgBase : 0)}</td>
+                        <td class="px-4 py-2 text-right text-sm text-gray-500 bg-sky-50/10 border-l border-sky-50">${fmtMoney(c2)}</td>
+                        <td class="px-4 py-2 text-right text-[10px] text-gray-400 bg-sky-50/10">${fmtKg(kg2 ? c2/kg2 : 0)}</td>
+                        <td class="px-4 py-2 text-right text-sm text-gray-500 bg-amber-50/10 border-l border-amber-50">${fmtMoney(c3)}</td>
+                        <td class="px-4 py-2 text-right text-[10px] text-gray-400 bg-amber-50/10">${fmtKg(kg3 ? c3/kg3 : 0)}</td>
+                    </tr>
+                `;
+            });
+
+            // Sumar al total general
+            grandTotal.b += deptTotal.b; grandTotal.e2 += deptTotal.e2; grandTotal.e3 += deptTotal.e3;
+
+            // Renderizar Bloque del Departamento
+            const collapseId = `dept-${index}`;
+            tbody.insertAdjacentHTML('beforeend', `
+                <tbody class="border-b border-gray-200 group">
+                    <!-- Cabecera Departamento (Clicable) -->
+                    <tr class="dept-row bg-gray-50/80 hover:bg-gray-100 transition-colors select-none" onclick="toggleDept('${collapseId}', this)">
+                        <td class="px-4 py-3 font-bold text-gray-700 flex items-center gap-3">
+                            <div class="w-5 h-5 flex items-center justify-center rounded bg-gray-200 text-gray-500">
+                                <i class="fas fa-chevron-right text-[10px] chevron transition-transform duration-300"></i>
+                            </div>
+                            <span>${dept.name}</span>
+                            <span class="text-[10px] text-gray-400 font-normal ml-auto px-2 py-0.5 bg-white rounded border border-gray-200">${dept.items.length} partidas</span>
+                        </td>
+                        <td class="px-2 py-3 text-center text-xs text-gray-400">-</td>
+                        
+                        <!-- Totales Depto -->
+                        <td class="px-4 py-3 text-right font-bold text-gray-800 border-l border-gray-200 bg-gray-50/50">${fmtMoney(deptTotal.b)}</td>
+                        <td class="px-4 py-3 text-right text-xs text-gray-500 bg-gray-50/50 font-mono">${fmtKg(kgBase ? deptTotal.b/kgBase : 0)}</td>
+                        
+                        <td class="px-4 py-3 text-right font-bold text-sky-700 bg-sky-50/30 border-l border-sky-100">${fmtMoney(deptTotal.e2)}</td>
+                        <td class="px-4 py-3 text-right text-xs text-sky-600 bg-sky-50/30 font-mono">${fmtKg(kg2 ? deptTotal.e2/kg2 : 0)}</td>
+                        
+                        <td class="px-4 py-3 text-right font-bold text-amber-700 bg-amber-50/30 border-l border-amber-100">${fmtMoney(deptTotal.e3)}</td>
+                        <td class="px-4 py-3 text-right text-xs text-amber-600 bg-amber-50/30 font-mono">${fmtKg(kg3 ? deptTotal.e3/kg3 : 0)}</td>
+                    </tr>
+                    ${itemsHtml}
+                </tbody>
+            `);
+        });
+
+        // Fila Total General
+        tbody.insertAdjacentHTML('beforeend', `
+            <tfoot class="sticky bottom-0 z-40 shadow-[0_-5px_15px_-5px_rgba(0,0,0,0.2)]">
+                <tr class="bg-slate-800 text-white font-bold text-sm">
+                    <td colspan="2" class="px-4 py-4 text-right uppercase tracking-wider">Total General</td>
+                    <td class="px-4 py-4 text-right border-l border-slate-600 text-base">${fmtMoney(grandTotal.b)}</td>
+                    <td class="px-4 py-4 text-right text-slate-300 font-mono">${fmtKg(kgBase ? grandTotal.b/kgBase : 0)}</td>
+                    <td class="px-4 py-4 text-right bg-slate-700 border-l border-slate-600 text-base">${fmtMoney(grandTotal.e2)}</td>
+                    <td class="px-4 py-4 text-right bg-slate-700 text-slate-300 font-mono">${fmtKg(kg2 ? grandTotal.e2/kg2 : 0)}</td>
+                    <td class="px-4 py-4 text-right bg-slate-700 border-l border-slate-600 text-base">${fmtMoney(grandTotal.e3)}</td>
+                    <td class="px-4 py-4 text-right bg-slate-700 text-slate-300 font-mono">${fmtKg(kg3 ? grandTotal.e3/kg3 : 0)}</td>
+                </tr>
+            </tfoot>
+        `);
+
+        // Actualizar KPIs
+        const kpiHTML = (title, kg, cost, color) => `
+            <div class="p-6 text-center hover:bg-gray-50 transition-colors">
+                <p class="text-xs font-bold uppercase text-${color}-500 mb-2 tracking-wider">${title}</p>
+                <p class="text-3xl font-bold text-slate-800 mb-1">${fmtInt(kg)} <span class="text-base font-normal text-gray-400">kg</span></p>
+                <div class="inline-flex items-center gap-2 px-3 py-1 bg-${color}-50 rounded-full border border-${color}-100">
+                    <i class="fas fa-coins text-${color}-500 text-xs"></i>
+                    <p class="text-sm font-bold text-${color}-700 font-mono">
+                        ${fmtKg(kg ? (title.includes('Base')?grandTotal.b:title.includes('2')?grandTotal.e2:grandTotal.e3)/kg : 0)} €/kg
+                    </p>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('kpiContainer').innerHTML = 
+            kpiHTML('Escenario Base', kgBase, grandTotal.b, 'slate') +
+            kpiHTML('Escenario 2', kg2, grandTotal.e2, 'sky') +
+            kpiHTML('Escenario 3', kg3, grandTotal.e3, 'amber');
+    }
+
+    // --- FUNCIÓN TOGGLE ACORDEÓN ---
+    window.toggleDept = function(id, headerEl) {
+        const rows = document.getElementsByClassName(id);
+        if(rows.length === 0) return;
+        
+        const isHidden = rows[0].classList.contains('hidden');
+        
+        // Rotar flecha y cambiar fondo
+        if(isHidden) {
+            headerEl.classList.add('expanded');
+            headerEl.classList.add('bg-slate-100');
+        } else {
+            headerEl.classList.remove('expanded');
+            headerEl.classList.remove('bg-slate-100');
+        }
+
+        for (let row of rows) {
+            if (isHidden) row.classList.remove('hidden');
+            else row.classList.add('hidden');
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchData();
+        
+        // Input mask para números con miles
+        ['cerdos2', 'cerdos3'].forEach(id => {
+            const el = document.getElementById(id);
+            el.addEventListener('input', (e) => {
+                let v = e.target.value.replace(/\D/g, '');
+                e.target.value = v ? parseInt(v).toLocaleString('es-ES') : '';
+            });
+        });
+
+        document.getElementById('calcBtn').addEventListener('click', render);
+    });
+</script>
+</body>
+</html>
